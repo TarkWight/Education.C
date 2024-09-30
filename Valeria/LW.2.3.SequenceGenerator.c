@@ -64,99 +64,144 @@
 ///
 //===----------------------------------------------------------------------===//
 
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <locale.h>
+
 
 // Функция генерации чередующихся отрицательных и положительных чисел
-void alternating_sequence(int N) {
+void alternating_sequence(int n) {
     int sign = 1;  // Определяем начальный знак
     int value = 1; // Начальное значение
 
-    for (int i = 0; i < N; i++) {
+    for (int i = 0; i < n; i++) {
         printf("%d ", sign * value);
         sign = -sign;  // Чередуем знак
         value += rand() % 10 + 1;  // Увеличиваем на случайное число от 1 до 10
     }
-    printf("\n");
 }
+
 
 // Функция генерации последовательности "лесенка"
-void ladder_sequence(int N, int period) {
+void ladder_sequence(int n, int period) {
     int value = 10;  // Начальное значение
-    int increment = 10;  // Шаг увеличения
+    int increment;
 
-    for (int i = 0; i < N; i++) {
+    for (int i = 0; i < n; i++) {
         printf("%d ", value);
+
+        // Генерация случайного увеличения в пределах от 1 до 10
+        increment = rand() % 10 + 1;
         value += increment;
+
+        // После достижения периода сброс на случайное значение
         if ((i + 1) % period == 0) {
-            value = rand() % 10 + 10;  // Начало новой "лесенки"
+            value = rand() % 10 + 10;  // Случайное новое значение от 10 до 19
         }
     }
-    printf("\n");
 }
+
 
 // Функция генерации последовательности "лесенка" с чередованием положительных и отрицательных чисел
-void ladder_pos_neg_sequence(int N) {
+void ladder_pos_neg_sequence(int n) {
     int value = 10;  // Начальное значение
-    int period = 4; // Значение периода
-    int increment = 10;
-    int sign = 1;
+    int period = 4;  // Период изменения
+    int increment = 10;  // Шаг увеличения
+    int sign = 1;  // Начальный знак
 
-    for (int i = 0; i < N; i++) {
-        printf("%d ", sign * value);
-        value += increment;
+    for (int i = 0; i < n; i++) {
+        printf("%d ", sign * value);  // Выводим значение с текущим знаком
+
+        // Увеличиваем значение на случайное число в диапазоне от 1 до 10
+        value += increment + rand() % 10;
+
+        // По достижении конца "лесенки" генерируем новое случайное значение
         if ((i + 1) % period == 0) {
-            value = rand() % 10 + 10;
+            value = rand() % 20 + 10;  // Случайное значение от 10 до 29
+            sign = -sign;  // Чередуем знак для следующего числа
         }
-        sign = -sign;  // Чередование знака
     }
-    printf("\n");
 }
+
 
 // Функция генерации последовательности "волна"
-void wave_sequence(int N, int period) {
-    int value = 1;
-    int increment = 19;
-    int wave_direction = 1;
+void wave_sequence(int n, int period) {
+    int value = 10;  // Начальное значение
+    int increment;
+    int direction = 1;  // 1 - рост, -1 - спад
 
-    for (int i = 0; i < N; i++) {
+    for (int i = 0; i < n; i++) {
         printf("%d ", value);
-        value += wave_direction * (rand() % 10 + 1);
+
+        // Генерация случайного шага в диапазоне от 1 до 15
+        increment = rand() % 15 + 1;
+        value += direction * increment;
+
+        // После достижения периода меняем направление
         if ((i + 1) % period == 0) {
-            wave_direction = -wave_direction;  // Меняем направление волны
+            direction = -direction;  // Инвертируем направление
         }
     }
-    printf("\n");
 }
+
 
 // Функция генерации последовательности "волна" с чередованием четных и нечетных групп
-void wave_even_odd_sequence(int N) {
-    int value = 20;
-    int period = 4;
-    int increment = 20;
-    int wave_direction = 1;
+void wave_even_odd_sequence(int n) {
+    int value = 20;  // Начальное значение
+    int period = 4;  // Период чередования
+    int increment = 5;  // Шаг изменения
+    int wave_direction = 1;  // Направление волны (1 - вверх, -1 - вниз)
+    int group_type = 0;  // Тип группы: 0 - четная, 1 - нечетная
+    int count = 0; // Счетчик для отслеживанием четности групп
 
-    for (int i = 0; i < N; i++) {
+    for (int i = 0; i < n; i++) {
+        // Генерация изменения с учетом четности
+        int change;
+        if (group_type == 0) {
+            // Четные группы увеличиваются/уменьшаются на четные числа
+            change = (increment + (rand() % 5) * 2);  // Четное изменение
+            value += wave_direction * change;
+
+            // Если значение нечетное, корректируем его до четного
+            if (value % 2 != 0) {
+                value++;
+            }
+        } else {
+            // Нечетные группы увеличиваются/уменьшаются на нечетные числа
+            change = (increment + (rand() % 5) * 2 + 1);  // Нечетное изменение
+            value += wave_direction * change;
+
+            // Если значение четное, корректируем его до нечетного
+            if (value % 2 == 0) {
+                value++;
+            }
+        }
+
         printf("%d ", value);
-        value += increment;
+
+        // Когда завершён период, меняем направление волны
         if ((i + 1) % period == 0) {
-            wave_direction = -wave_direction;  // Чередование направления
-            value = rand() % 20 + 20;  // Новая группа
+            wave_direction = -wave_direction;  // Изменяем направление волны
+            count++;
+            if (count % 2 == 0) { // Считаем волны. Каждая вторая волна меняет четность последующих двух групп
+                value = rand() % 20 + 20;  // Новое случайное значение для следующей группы
+                group_type = 1 - group_type;  // Чередуем четную/нечетную группу
+            }
         }
     }
-    printf("\n");
 }
 
+
 int main() {
+    setlocale(LC_ALL, "ru_RU.UTF-8");
     srand(time(0));  // Инициализируем генератор случайных чисел
-    
-    int N, choice, period;
+
+    int n, choice, period;
 
     printf("Введите количество элементов последовательности: ");
-    scanf("%d", &N);
-    
+    scanf("%d", &n);
+
     printf("Выберите тип последовательности:\n");
     printf("1. Чередующиеся отрицательные и положительные числа\n");
     printf("2. Лесенка\n");
@@ -164,30 +209,30 @@ int main() {
     printf("4. Волна\n");
     printf("5. Волна с чередованием четных и нечетных групп\n");
     scanf("%d", &choice);
-    
+
     if (choice == 2 || choice == 4) {
         printf("Введите период: ");
         scanf("%d", &period);
     }
 
     switch (choice) {
-        case 1:
-            alternating_sequence(N);
-            break;
-        case 2:
-            ladder_sequence(N, period);
-            break;
-        case 3:
-            ladder_pos_neg_sequence(N);
-            break;
-        case 4:
-            wave_sequence(N, period);
-            break;
-        case 5:
-            wave_even_odd_sequence(N);
-            break;
-        default:
-            printf("Неправильный выбор!\n");
+    case 1:
+        alternating_sequence(n);
+        break;
+    case 2:
+        ladder_sequence(n, period);
+        break;
+    case 3:
+        ladder_pos_neg_sequence(n);
+        break;
+    case 4:
+        wave_sequence(n, period);
+        break;
+    case 5:
+        wave_even_odd_sequence(n);
+        break;
+    default:
+        printf("Неправильный выбор!\n");
     }
 
     return 0;
