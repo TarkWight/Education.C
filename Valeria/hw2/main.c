@@ -42,43 +42,52 @@ int main() {
 
     // Основной игровой цикл
     while (!playerWin && !computerWin) {
-        // Ход игрока
+        // Ходы игрока
         printf("Your field:\n");
         printField(playerField, 0);
         printf("Computer's field:\n");
         printField(computerField, 1);
 
-        printf("Enter coordinates (e.g., B5): ");
-        char input[10];
-        scanf("%s", input);
+        int playerTurn = 1; // Флаг хода игрока
+        while (playerTurn && !playerWin) {
+            printf("Enter coordinates (e.g., B5): ");
+            char input[10];
+            scanf("%s", input);
 
-        if (parseCoordinates(input, &x, &y)) {
-            if (shoot(computerField, computerMask, x, y)) {
-                printf("Hit!\n");
+            if (parseCoordinates(input, &x, &y)) {
+                if (shoot(computerField, computerMask, x, y)) {
+                    printf("Hit! You get another turn.\n");
+                    if (checkWin(computerField)) {
+                        playerWin = 1;
+                        break;
+                    }
+                } else {
+                    printf("Miss. Computer's turn.\n");
+                    playerTurn = 0; // Передача хода компьютеру
+                }
             } else {
-                printf("Miss.\n");
+                printf("Invalid input. Try again.\n");
             }
-        } else {
-            printf("Invalid input. Try again.\n");
         }
 
-        if (checkWin(computerField)) {
-            playerWin = 1;
-            break;
-        }
+        if (playerWin) break;
 
-        // Ход компьютера
+        // Ходы компьютера
         printf("Computer's turn...\n");
-        computerMove(playerField, &x, &y);
-        printf("Computer shoots at (%c%d)\n", 'A' + x, y + 1);
-        if (shoot(playerField, playerMask, x, y)) {
-            printf("Computer hit your ship!\n");
-        } else {
-            printf("Computer missed.\n");
-        }
-        if (checkWin(playerField)) {
-            computerWin = 1;
-            break;
+        int computerTurn = 1; // Флаг хода компьютера
+        while (computerTurn && !computerWin) {
+            computerMove(playerField, &x, &y);
+            printf("Computer shoots at (%c%d)\n", 'A' + x, y + 1);
+            if (shoot(playerField, playerMask, x, y)) {
+                printf("Computer hit your ship! It gets another turn.\n");
+                if (checkWin(playerField)) {
+                    computerWin = 1;
+                    break;
+                }
+            } else {
+                printf("Computer missed. Your turn.\n");
+                computerTurn = 0; // Передача хода игроку
+            }
         }
     }
 
