@@ -299,10 +299,10 @@ int checkWin(char field[SIZE][SIZE]) {
 
 // Парсинг ввода
 int parseCoordinates(char *input, int *x, int *y) {
-    if (strlen(input) < 2 || input[0] < 'A' || input[0] > 'J' || !isdigit(input[1])) {
+    if (strlen(input) < 2 || (toupper(input[0]) < 'A' || toupper(input[0]) > 'J') || !isdigit(input[1])) {
         return 0;
     }
-    *x = input[0] - 'A';
+    *x = toupper(input[0]) - 'A';  // Преобразуем символ в верхний регистр
     *y = atoi(&input[1]) - 1;
     return (*x >= 0 && *x < SIZE && *y >= 0 && *y < SIZE);
 }
@@ -383,28 +383,27 @@ int checkIfShipSunk(char field[SIZE][SIZE], Ship ships[], int numShips, int x, i
         if (ship->horizontal) {
             if (y >= ship->y && y < ship->y + ship->size && x == ship->x) {
                 hit = 1;
-                printf("\n\t\tship->horizontal hit = 1; at position %d, %d\n", x, y);
             }
         } else {
             if (x >= ship->x && x < ship->x + ship->size && y == ship->y) {
                 hit = 1;
-                printf("\n\t\tship->vertical hit = 1; at position %d, %d\n", x, y);
             }
         }
 
         if (hit) {
             ship->hits++; // Увеличиваем количество попаданий для этого корабля
-            printf("\n\t\tship->hits++: %d/%d\n", ship->hits, ship->size);
 
             // Проверяем, потоплен ли корабль
             if (ship->hits == ship->size) {
                 // Корабль потоплен
-                printf("\n\t\tShip is sunk!\n");
+                printf("Ship %d is sunk!\n", i + 1);
+
+                // Заменяем клетки корабля на DESTROYED
                 for (int j = 0; j < ship->size; j++) {
                     if (ship->horizontal) {
-                        field[ship->x][ship->y + j] = DESTROYED; // Заменяем клетки на DESTROYED
+                        field[ship->x][ship->y + j] = DESTROYED; // Горизонтально
                     } else {
-                        field[ship->x + j][ship->y] = DESTROYED; // Заменяем клетки на DESTROYED
+                        field[ship->x + j][ship->y] = DESTROYED; // Вертикально
                     }
                 }
                 return 1; // Корабль потоплен
@@ -412,6 +411,7 @@ int checkIfShipSunk(char field[SIZE][SIZE], Ship ships[], int numShips, int x, i
         }
     }
 
-    printf("\n\t\tKorable ne potoplen!\n");
-    return 0; // Корабль не потоплен
+    // Корабль не потоплен
+    printf("\n\t\tShip is not sunk yet!\n");
+    return 0;
 }
