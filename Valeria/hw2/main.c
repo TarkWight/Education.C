@@ -2,17 +2,21 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <ctype.h>
 
-// Константы
-const int SIZE = 10;
-const char EMPTY = ' ';
-const char SHIP = 'S';
-const char HIT = 'X';
-const char MISS = '.';
-const char DESTROYED = 'D';
-const int BUFFER_LOCK_CELL = -1;
-const int BUFFER_EMPTY_CELL = 0;
-const int BUFFER_SHIP_CELL = 1;
+#include "constants.h"
+#include "ai.h"
+
+// Константы переехали в constants.h
+// const int SIZE = 10;
+// const char EMPTY = ' ';
+// const char SHIP = 'S';
+// const char HIT = 'X';
+// const char MISS = '.';
+// const char DESTROYED = 'D';
+// const int BUFFER_LOCK_CELL = -1;
+// const int BUFFER_EMPTY_CELL = 0;
+// const int BUFFER_SHIP_CELL = 1;
 
 // Прототипы функций
 int parseCoordinates(char *input, int *x, int *y);
@@ -26,8 +30,7 @@ void addBufferZone(int mask[SIZE][SIZE], int x, int y, int length, int horizonta
 int isValidPlacement(int mask[SIZE][SIZE], int x, int y, int length, int horizontal);
 void initializeField(char field[SIZE][SIZE], int mask[SIZE][SIZE]);
 void printField(char field[SIZE][SIZE], int hideShips);
-void computerMoveEasy(char field[SIZE][SIZE], int *x, int *y);
-void computerMoveHard(char field[SIZE][SIZE], int *x, int *y);
+void computerMove(AIState* aiState, char playerField[SIZE][SIZE],  int playerMask[SIZE][SIZE], int *x, int *y, int aiDifficulty);
 
 void printMask(int field[SIZE][SIZE], int isHideShips) {
     printf("   ");
@@ -50,12 +53,20 @@ int main() {
     char computerField[SIZE][SIZE];
     int computerMask[SIZE][SIZE];
     int x, y, playerWin = 0, computerWin = 0;
+    int aiDifficulty;  // Переменная для хранения выбранной сложности ИИ
 
     srand((unsigned int)time(NULL));
+
+    // Запрос на выбор сложности
+    printf("Select AI difficulty (1 - Easy, 2 - Hard): ");
+    scanf("%d", &aiDifficulty);
 
     // Инициализация полей
     initializeField(playerField, playerMask);
     initializeField(computerField, computerMask);
+
+    AIState aiState;
+    initializeAIState(&aiState);
 
     // Размещение кораблей
     printf("Place your ships:\n");
@@ -74,7 +85,6 @@ int main() {
 
         int playerTurn = 1; // Флаг хода игрока
         while (playerTurn && !playerWin) {
-
             printf("Enter coordinates (e.g., B5): ");
             char input[10];
             scanf("%s", input);
@@ -101,7 +111,7 @@ int main() {
         printf("Computer's turn...\n");
         int computerTurn = 1; // Флаг хода компьютера
         while (computerTurn && !computerWin) {
-            computerMoveEasy(playerField, &x, &y);
+            computerMove(&aiState, playerField, playerMask, &x, &y, aiDifficulty);  // Вызываем с учетом сложности
             printf("Computer shoots at (%c%d)\n", 'A' + x, y + 1);
             if (shoot(playerField, playerMask, x, y)) {
                 printf("Computer hit your ship! It gets another turn.\n");
@@ -125,6 +135,7 @@ int main() {
 
     return 0;
 }
+
 
 
 
@@ -281,10 +292,18 @@ void printField(char field[SIZE][SIZE], int isHideShips) {
         printf("\n");
     }
 }
-// Ход компьютера
-void computerMoveEasy(char field[SIZE][SIZE], int *x, int *y) {
-    do {
-        *x = rand() % SIZE;
-        *y = rand() % SIZE;
-    } while (field[*x][*y] == HIT || field[*x][*y] == MISS);
+
+void computerMove(AIState* aiState, char playerField[SIZE][SIZE], int playerMask[SIZE][SIZE], int *x, int *y, int aiDifficulty) {
+    if (aiDifficulty == 1) {
+        // Легкий уровень - случайный выбор клетки
+        do {
+            *x = rand() % SIZE;
+            *y = rand() % SIZE;
+        } while (playerField[*x][*y] == HIT || playerField[*x][*y] == MISS); // Не атакованные клетки
+    } else {
+        // Сложный уровень - использование алгоритма охоты
+        executeAITurn(aiState, playerField, playerMask);
+        *x = aiState->currentTarget[0];
+        *y = aiState->currentTarget[1];
+    }
 }
