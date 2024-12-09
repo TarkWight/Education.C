@@ -34,7 +34,6 @@ void enqueueAdjacentCells(AIState* state, int x, int y);
 void handleShipDestroyed(AIState* state, int x, int y, int length, int horizontal);
 void huntTarget(AIState* state, char field[SIZE][SIZE], int mask[SIZE][SIZE]);
 void executeAITurn(AIState* state, char field[SIZE][SIZE], int mask[SIZE][SIZE]);
-void freeAIState(AIState* state);
 void computerMove(AIState* aiState, char playerField[SIZE][SIZE],  int playerMask[SIZE][SIZE], int *x, int *y, int aiDifficulty);
 
 void placeShipsManual(char field[SIZE][SIZE], int mask[SIZE][SIZE], Ship ships[], int *shipCount);
@@ -138,7 +137,6 @@ int main() {
             }
         }
     }
-
     // Определение победителя
     if (playerWin) {
         printf("Congratulations, you win!\n");
@@ -478,12 +476,4 @@ void executeAITurn(AIState* state, char field[SIZE][SIZE], int mask[SIZE][SIZE])
             state->mask[x][y] = -1; // Промах
         }
     }
-}
-
-void freeAIState(AIState* state) {
-    for (int i = 0; i < SIZE; i++) {
-        free(state->mask[i]);
-    }
-    free(state->mask);
-    free(state->hitQueue);
 }
