@@ -17,21 +17,30 @@
 // const int BUFFER_LOCK_CELL = -1;
 // const int BUFFER_EMPTY_CELL = 0;
 // const int BUFFER_SHIP_CELL = 1;
-void checkAndPrintIfShipSunk(char field[SIZE][SIZE], int x, int y, const char* shipType);
+// Структура для хранения информации о корабле
+typedef struct {
+    int x, y;           // Начальная координата
+    int size;           // Размер корабля
+    int horizontal;     // 1 — горизонтальный, 0 — вертикальный
+    int hits;           // Количество попаданий в корабль
+} Ship;
+
+
+// void checkAndPrintIfShipSunk(char field[SIZE][SIZE], int x, int y, const char* shipType);
 // Прототипы функций
 int parseCoordinates(char *input, int *x, int *y);
 int checkWin(char field[SIZE][SIZE]);
 
 int shoot(char field[SIZE][SIZE], int mask[SIZE][SIZE], int x, int y);
 int isShipSunk(char field[SIZE][SIZE], int x, int y);
-void placeShipsManual(char field[SIZE][SIZE], int mask[SIZE][SIZE]);
-void placeShipsAuto(char field[SIZE][SIZE], int mask[SIZE][SIZE]);
+void placeShipsManual(char field[SIZE][SIZE], int mask[SIZE][SIZE], Ship ships[], int *shipCount);
+void placeShipsAuto(char field[SIZE][SIZE], int mask[SIZE][SIZE], Ship ships[], int *shipCount);
 void addBufferZone(int mask[SIZE][SIZE], int x, int y, int length, int horizontal);
 int isValidPlacement(int mask[SIZE][SIZE], int x, int y, int length, int horizontal);
 void initializeField(char field[SIZE][SIZE], int mask[SIZE][SIZE]);
 void printField(char field[SIZE][SIZE], int hideShips);
 void computerMove(AIState* aiState, char playerField[SIZE][SIZE],  int playerMask[SIZE][SIZE], int *x, int *y, int aiDifficulty);
-int checkIfShipSunk(char field[SIZE][SIZE], int x, int y, int shipSize);
+int checkIfShipSunk(char field[SIZE][SIZE], Ship ships[], int numShips, int x, int y);
 void printMask(int field[SIZE][SIZE], int isHideShips) {
     printf("   ");
     for (int i = 1; i <= SIZE; i++) printf("%d\t", i);
@@ -44,6 +53,7 @@ void printMask(int field[SIZE][SIZE], int isHideShips) {
         printf("\n");
     }
 }
+
 
 
 int main() {
@@ -68,11 +78,16 @@ int main() {
     AIState aiState;
     initializeAIState(&aiState);
 
+    Ship playerShips[10]; // Массив для хранения кораблей игрока
+    int numPlayerShips = 0; // Количество кораблей игрока
+
+    Ship computerShips[10]; // Массив для хранения кораблей игрока
+    int numComputerShips = 0;
     // Размещение кораблей
     printf("Place your ships:\n");
-    placeShipsManual(playerField, playerMask);
+    placeShipsManual(playerField, playerMask, playerShips, &numPlayerShips);
     printf("Computer is placing its ships...\n");
-    placeShipsAuto(computerField, computerMask);
+    placeShipsAuto(computerField, computerMask, computerShips, &numComputerShips);
 
     // Основной игровой цикл
     while (!playerWin && !computerWin) {
@@ -93,8 +108,13 @@ int main() {
                 if (shoot(computerField, computerMask, x, y)) {
                     printf("Hit! You get another turn.\n");
                     // Пример для проверки потопления корабля
-                    checkAndPrintIfShipSunk(playerField, x, y, "You");
-
+                    // checkAndPrintIfShipSunk(playerField, x, y, "You");
+                    for (int size = 4; size >= 1; size--) {  // Проверяем сначала для 4, потом 3, 2, 1
+                        if (checkIfShipSunk(playerField, playerShips, numPlayerShips, x, y)) {
+                            printf("You sunk a ship of size %d!\n", size);
+                            break;  // Останавливаем проверку, как только корабль потоплен
+                        }
+                    }
                     if (checkWin(computerField)) {
                         playerWin = 1;
                         break;
@@ -119,8 +139,13 @@ int main() {
             if (shoot(playerField, playerMask, x, y)) {
                 printf("Computer hit your ship! It gets another turn.\n");
 
-                checkAndPrintIfShipSunk(computerField, x, y, "Computer");
-
+                // checkAndPrintIfShipSunk(computerField, x, y, "Computer");
+                for (int size = 4; size >= 1; size--) {  // Проверяем сначала для 4, потом 3, 2, 1
+                    if (checkIfShipSunk(playerField, playerShips, numPlayerShips, x, y)) {
+                        printf("Computer sunk a ship of size %d!\n", size);
+                        break;  // Останавливаем проверку, как только корабль потоплен
+                    }
+                }
                 if (checkWin(playerField)) {
                     computerWin = 1;
                     break;
@@ -147,7 +172,7 @@ int main() {
 
 
 // Размещение кораблей вручную
-void placeShipsManual(char field[SIZE][SIZE], int mask[SIZE][SIZE]) {
+void placeShipsManual(char field[SIZE][SIZE], int mask[SIZE][SIZE], Ship ships[], int *shipCount) {
     int shipSizes[] = {4, 3, 3, 2, 2, 2, 1, 1, 1, 1}; // Пример кораблей
     int x, y, horizontal;
 
@@ -158,12 +183,22 @@ void placeShipsManual(char field[SIZE][SIZE], int mask[SIZE][SIZE]) {
             char input[10];
             scanf("%s %d", input, &horizontal);
             if (parseCoordinates(input, &x, &y) && isValidPlacement(mask, x, y, length, horizontal)) {
+                // Заполнение информации о корабле в структуре
+                ships[*shipCount].x = x;
+                ships[*shipCount].y = y;
+                ships[*shipCount].size = length;
+                ships[*shipCount].horizontal = horizontal;
+                ships[*shipCount].hits = 0;
+                (*shipCount)++; // Увеличиваем счётчик кораблей
+
+                // Размещение корабля на поле
                 for (int j = 0; j < length; j++) {
                     if (horizontal)
                         field[x][y + j] = SHIP;
                     else
                         field[x + j][y] = SHIP;
                 }
+
                 addBufferZone(mask, x, y, length, horizontal);
                 printField(field, 0);
                 break;
@@ -174,8 +209,9 @@ void placeShipsManual(char field[SIZE][SIZE], int mask[SIZE][SIZE]) {
     }
 }
 
+
 // Размещение кораблей компьютером
-void placeShipsAuto(char field[SIZE][SIZE], int mask[SIZE][SIZE]) {
+void placeShipsAuto(char field[SIZE][SIZE], int mask[SIZE][SIZE], Ship ships[], int *shipCount) {
     int shipSizes[] = {4, 3, 3, 2, 2, 2, 1, 1, 1, 1};
     int x, y, horizontal;
 
@@ -186,18 +222,29 @@ void placeShipsAuto(char field[SIZE][SIZE], int mask[SIZE][SIZE]) {
             y = rand() % SIZE;
             horizontal = rand() % 2;
             if (isValidPlacement(mask, x, y, length, horizontal)) {
+                // Заполнение информации о корабле в структуре
+                ships[*shipCount].x = x;
+                ships[*shipCount].y = y;
+                ships[*shipCount].size = length;
+                ships[*shipCount].horizontal = horizontal;
+                ships[*shipCount].hits = 0;
+                (*shipCount)++; // Увеличиваем счётчик кораблей
+
+                // Размещение корабля на поле
                 for (int j = 0; j < length; j++) {
                     if (horizontal)
                         field[x][y + j] = SHIP;
                     else
                         field[x + j][y] = SHIP;
                 }
+
                 addBufferZone(mask, x, y, length, horizontal);
                 break;
             }
         }
     }
 }
+
 
 // Проверка корректности размещения корабля
 int isValidPlacement(int mask[SIZE][SIZE], int x, int y, int length, int horizontal) {
@@ -315,78 +362,56 @@ void computerMove(AIState* aiState, char playerField[SIZE][SIZE], int playerMask
     }
 }
 
-// Функция для проверки потоплен ли корабль
-int checkIfShipSunk(char field[SIZE][SIZE], int x, int y, int shipSize) {
-    // Определяем ориентацию корабля (горизонтальная или вертикальная)
-    int horizontal = 1;
-    int i;
-    printf("\n\t\tStarted checkIfShipSunk\n");
-    // Проверяем, горизонтальный ли корабль (если рядом с ним есть клетки по вертикали, то вертикальный)
-    for (i = 0; i < shipSize; i++) {
-        if (y + i < SIZE && field[x][y + i] == field[x][y]) {
-            continue;
-        }
-        else {
-            horizontal = 0;
-            break;
-        }
-    }
-
-    // Проверяем вертикальный ли корабль
-    for (i = 0; i < shipSize; i++) {
-        if (x + i < SIZE && field[x + i][y] == field[x][y]) {
-            continue;
-        }
-        else {
-            horizontal = 0;
-            break;
-        }
-    }
-
-    // Проверка потопленного состояния
-    if (horizontal) {
-        for (int i = 0; i < shipSize; i++) {
-            int nx = x;
-            int ny = y + i;
-            if (field[nx][ny] != HIT) {
-                printf("\n\t\tcheckIfShipSunk horizontal fail\n");
-                return 0; // Корабль не потоплен
-            }
-        }
-        // Если корабль потоплен, заменяем клетки на DESTROYED
-        for (int i = 0; i < shipSize; i++) {
-            int nx = x;
-            int ny = y + i;
-            field[nx][ny] = DESTROYED;
-        }
-    } else {
-        for (int i = 0; i < shipSize; i++) {
-            int nx = x + i;
-            int ny = y;
-            if (field[nx][ny] != HIT) {
-                printf("\n\t\tcheckIfShipSunk vertical fail\n");
-                return 0; // Корабль не потоплен
-            }
-        }
-        // Если корабль потоплен, заменяем клетки на DESTROYED
-        for (int i = 0; i < shipSize; i++) {
-            int nx = x + i;
-            int ny = y;
-            field[nx][ny] = DESTROYED;
-        }
-    }
-    printf("\n\t\tcheckIfShipSunk access\n");
-    return 1; // Корабль потоплен
-}
-
 // Функция для проверки потопления корабля для разных размеров
 void checkAndPrintIfShipSunk(char field[SIZE][SIZE], int x, int y, const char* shipType) {
-    for (int size = 4; size >= 1; size--) {  // Проверяем сначала для 4, потом 3, 2, 1
-        if (checkIfShipSunk(field, x, y, size)) {
-            printf("%s sunk a ship of size %d!\n", shipType, size);
-            break;  // Останавливаем проверку, как только корабль потоплен
-        }
-    }
+    // for (int size = 4; size >= 1; size--) {  // Проверяем сначала для 4, потом 3, 2, 1
+    //     if (checkIfShipSunk(playerField, playerShips, numPlayerShips, x, y)) {
+    //         printf("%s sunk a ship of size %d!\n", shipType, size);
+    //         break;  // Останавливаем проверку, как только корабль потоплен
+    //     }
+    // }
 }
 
 
+// Функция для проверки потоплен ли корабль
+int checkIfShipSunk(char field[SIZE][SIZE], Ship ships[], int numShips, int x, int y) {
+    for (int i = 0; i < numShips; i++) {
+        Ship *ship = &ships[i]; // Получаем указатель на структуру корабля
+
+        // Проверяем, попал ли выстрел в корабль
+        int hit = 0;
+        if (ship->horizontal) {
+            if (y >= ship->y && y < ship->y + ship->size && x == ship->x) {
+                hit = 1;
+                printf("\n\t\tship->horizontal hit = 1; at position %d, %d\n", x, y);
+            }
+        } else {
+            if (x >= ship->x && x < ship->x + ship->size && y == ship->y) {
+                hit = 1;
+                printf("\n\t\tship->vertical hit = 1; at position %d, %d\n", x, y);
+            }
+        }
+
+        if (hit) {
+            ship->hits++; // Увеличиваем количество попаданий для этого корабля
+            printf("\n\t\tship->hits++: %d/%d\n", ship->hits, ship->size);
+
+            // Проверяем, потоплен ли корабль
+            if (ship->hits == ship->size) {
+                // Корабль потоплен
+                printf("\n\t\tShip is sunk!\n");
+                for (int j = 0; j < ship->size; j++) {
+                    if (ship->horizontal) {
+                        field[ship->x][ship->y + j] = DESTROYED; // Заменяем клетки на DESTROYED
+                    } else {
+                        field[ship->x + j][ship->y] = DESTROYED; // Заменяем клетки на DESTROYED
+                    }
+                }
+                return 1; // Корабль потоплен
+            }
+        }
+    }
+
+    printf("\n\t\tKorable ne potoplen!\n");
+    return 0; // Корабль не потоплен
+}
