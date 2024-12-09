@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 
 // Константы
@@ -15,9 +16,11 @@ void printField(char field[SIZE][SIZE], int hideShips);
 void placeShipsManual(char field[SIZE][SIZE]);
 void placeShipsAuto(char field[SIZE][SIZE]);
 int isValidPlacement(char field[SIZE][SIZE], int x, int y, int length, int horizontal);
+void addBufferZone(char field[SIZE][SIZE], int x, int y, int length, int horizontal);
 int shoot(char field[SIZE][SIZE], int x, int y);
 void computerMove(char field[SIZE][SIZE], int *x, int *y);
 int checkWin(char field[SIZE][SIZE]);
+int parseCoordinates(char *input, int *x, int *y);
 
 int main() {
     char playerField[SIZE][SIZE], computerField[SIZE][SIZE];
@@ -43,13 +46,20 @@ int main() {
         printf("Computer's field:\n");
         printField(computerField, 1);
 
-        printf("Enter your shot coordinates (x y): ");
-        scanf("%d %d", &x, &y);
-        if (shoot(computerField, x, y)) {
-            printf("Hit!\n");
+        printf("Enter coordinates (e.g., B5): ");
+        char input[10];
+        scanf("%s", input);
+
+        if (parseCoordinates(input, &x, &y)) {
+            if (shoot(computerField, x, y)) {
+                printf("Hit!\n");
+            } else {
+                printf("Miss.\n");
+            }
         } else {
-            printf("Miss.\n");
+            printf("Invalid input. Try again.\n");
         }
+
         if (checkWin(computerField)) {
             playerWin = 1;
             break;
@@ -58,7 +68,7 @@ int main() {
         // Ход компьютера
         printf("Computer's turn...\n");
         computerMove(playerField, &x, &y);
-        printf("Computer shoots at (%d, %d)\n", x, y);
+        printf("Computer shoots at (%c%d)\n", 'A' + x, y + 1);
         if (shoot(playerField, x, y)) {
             printf("Computer hit your ship!\n");
         } else {
@@ -91,11 +101,11 @@ void initializeField(char field[SIZE][SIZE]) {
 
 // Вывод игрового поля
 void printField(char field[SIZE][SIZE], int hideShips) {
-    printf("  ");
-    for (int i = 0; i < SIZE; i++) printf("%d ", i);
+    printf("   ");
+    for (int i = 1; i <= SIZE; i++) printf("%d ", i);
     printf("\n");
     for (int i = 0; i < SIZE; i++) {
-        printf("%d ", i);
+        printf("%c  ", 'A' + i); // A-J for rows
         for (int j = 0; j < SIZE; j++) {
             if (hideShips && field[i][j] == SHIP)
                 printf("%c ", EMPTY);
@@ -113,16 +123,18 @@ void placeShipsManual(char field[SIZE][SIZE]) {
 
     for (int i = 0; i < sizeof(shipSizes) / sizeof(shipSizes[0]); i++) {
         int length = shipSizes[i];
-        printf("Place a ship of length %d (x y horizontal[1-horizontal, 0-vertical]): ", length);
+        printf("Place a ship of length %d (e.g., B5 1-horizontal, 0-vertical): ", length);
         while (1) {
-            scanf("%d %d %d", &x, &y, &horizontal);
-            if (isValidPlacement(field, x, y, length, horizontal)) {
+            char input[10];
+            scanf("%s %d", input, &horizontal);
+            if (parseCoordinates(input, &x, &y) && isValidPlacement(field, x, y, length, horizontal)) {
                 for (int j = 0; j < length; j++) {
                     if (horizontal)
                         field[x][y + j] = SHIP;
                     else
                         field[x + j][y] = SHIP;
                 }
+                addBufferZone(field, x, y, length, horizontal);
                 break;
             } else {
                 printf("Invalid placement. Try again: ");
@@ -149,6 +161,7 @@ void placeShipsAuto(char field[SIZE][SIZE]) {
                     else
                         field[x + j][y] = SHIP;
                 }
+                addBufferZone(field, x, y, length, horizontal);
                 break;
             }
         }
@@ -164,6 +177,19 @@ int isValidPlacement(char field[SIZE][SIZE], int x, int y, int length, int horiz
             return 0;
     }
     return 1;
+}
+
+// Добавление буферной зоны вокруг корабля
+void addBufferZone(char field[SIZE][SIZE], int x, int y, int length, int horizontal) {
+    for (int i = -1; i <= length; i++) {
+        for (int j = -1; j <= 1; j++) {
+            int nx = x + (horizontal ? 0 : i) + (horizontal ? 0 : j);
+            int ny = y + (horizontal ? i : 0) + (horizontal ? j : 0);
+            if (nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE && field[nx][ny] == EMPTY) {
+                field[nx][ny] = EMPTY;
+            }
+        }
+    }
 }
 
 // Обработка выстрела
@@ -199,4 +225,12 @@ int checkWin(char field[SIZE][SIZE]) {
     return 1;
 }
 
-
+// Парсинг ввода, например "B5"
+int parseCoordinates(char *input, int *x, int *y) {
+    if (strlen(input) < 2 || input[0] < 'A' || input[0] > 'J' || !isdigit(input[1])) {
+        return 0;
+    }
+    *x = input[0] - 'A';
+    *y = atoi(&input[1]) - 1;
+    return (*x >= 0 && *x < SIZE && *y >= 0 && *y < SIZE);
+}
