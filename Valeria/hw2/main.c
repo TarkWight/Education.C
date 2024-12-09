@@ -4,20 +4,16 @@
 #include <time.h>
 #include <ctype.h>
 
-#include "constants.h"
-#include "ai.h"
+const int SIZE = 10;
+const char EMPTY = ' ';
+const char SHIP = 'S';
+const char HIT = 'X';
+const char MISS = '.';
+const char DESTROYED = 'D';
+const int BUFFER_LOCK_CELL = -1;
+const int BUFFER_EMPTY_CELL = 0;
+const int BUFFER_SHIP_CELL = 1;
 
-// Константы переехали в constants.h
-// const int SIZE = 10;
-// const char EMPTY = ' ';
-// const char SHIP = 'S';
-// const char HIT = 'X';
-// const char MISS = '.';
-// const char DESTROYED = 'D';
-// const int BUFFER_LOCK_CELL = -1;
-// const int BUFFER_EMPTY_CELL = 0;
-// const int BUFFER_SHIP_CELL = 1;
-// Структура для хранения информации о корабле
 typedef struct {
     int x, y;           // Начальная координата
     int size;           // Размер корабля
@@ -25,13 +21,25 @@ typedef struct {
     int hits;           // Количество попаданий в корабль
 } Ship;
 
+typedef struct {
+    int** mask;          // Состояние ячеек: не атакована, ожидаемая, атакована
+    int** hitQueue;      // Очередь для локального поиска
+    int hitQueueSize;    // Размер очереди
+    int huntingMode;     // Режим: 0 - поиск, 1 - охота
+    int currentTarget[2]; // Координаты первого попадания
+} AIState;
 
-// void checkAndPrintIfShipSunk(char field[SIZE][SIZE], int x, int y, const char* shipType);
-// Прототипы функций
+void initializeAIState(AIState* state);
+void enqueueAdjacentCells(AIState* state, int x, int y);
+void handleShipDestroyed(AIState* state, int x, int y, int length, int horizontal);
+int attackCell(char field[SIZE][SIZE], int mask[SIZE][SIZE], int x, int y);
+void huntTarget(AIState* state, char field[SIZE][SIZE], int mask[SIZE][SIZE]);
+void executeAITurn(AIState* state, char field[SIZE][SIZE], int mask[SIZE][SIZE]);
+void freeAIState(AIState* state);
+
 int parseCoordinates(char *input, int *x, int *y);
 int checkWin(char field[SIZE][SIZE]);
 
-// int shoot(char field[SIZE][SIZE], int mask[SIZE][SIZE], int x, int y);
 int isShipSunk(char field[SIZE][SIZE], int x, int y);
 void placeShipsManual(char field[SIZE][SIZE], int mask[SIZE][SIZE], Ship ships[], int *shipCount);
 void placeShipsAuto(char field[SIZE][SIZE], int mask[SIZE][SIZE], Ship ships[], int *shipCount);
@@ -40,22 +48,9 @@ int isValidPlacement(int mask[SIZE][SIZE], int x, int y, int length, int horizon
 void initializeField(char field[SIZE][SIZE], int mask[SIZE][SIZE]);
 void printField(char field[SIZE][SIZE], int hideShips);
 void computerMove(AIState* aiState, char playerField[SIZE][SIZE],  int playerMask[SIZE][SIZE], int *x, int *y, int aiDifficulty);
-// int checkIfShipSunk(char field[SIZE][SIZE], Ship ships[], int numShips, int x, int y);
 int shootAndCheckIfShipSunk(char field[SIZE][SIZE], int mask[SIZE][SIZE], Ship ships[], int numShips, int x, int y);
-void printMask(int field[SIZE][SIZE], int isHideShips) {
-    printf("   ");
-    for (int i = 1; i <= SIZE; i++) printf("%d\t", i);
-    printf("\n");
-    for (int i = 0; i < SIZE; i++) {
-        printf("%c  ", 'A' + i); // A-J for rows
-        for (int j = 0; j < SIZE; j++) {
-            printf("%d\t", field[i][j]);
-        }
-        printf("\n");
-    }
-}
 
-
+// void printMask(int field[SIZE][SIZE], int isHideShips) // Дебажная функция
 
 int main() {
     char playerField[SIZE][SIZE];
@@ -96,9 +91,8 @@ int main() {
         // Ходы игрока
         printf("Your field:\n");
         printField(playerField, 0);
-        printMask(playerMask, 0);
         printf("Computer's field:\n");
-        printField(computerField, 0);
+        printField(computerField, 1);
 
         int playerTurn = 1; // Флаг хода игрока
         while (playerTurn && !playerWin) {
@@ -109,6 +103,7 @@ int main() {
             if (parseCoordinates(input, &x, &y)) {
                 if (shootAndCheckIfShipSunk(computerField, computerMask, computerShips, numComputerShips, x, y)) {
                     printf("Hit! You get another turn.\n");
+                    printField(computerField, 1);
                     if (checkWin(computerField)) {
                         playerWin = 1;
                         break;
@@ -128,10 +123,14 @@ int main() {
         printf("Computer's turn...\n");
         int computerTurn = 1; // Флаг хода компьютера
         while (computerTurn && !computerWin) {
+
+            printf("Computer shoots at (%c%d)\n", 'A' + y, x + 1);
             computerMove(&aiState, playerField, playerMask, &x, &y, aiDifficulty);  // Вызываем с учетом сложности
-            printf("Computer shoots at (%c%d)\n", 'A' + x, y + 1);
+
+
             if (shootAndCheckIfShipSunk(playerField, playerMask, playerShips, numPlayerShips, x, y)) {
                 printf("Computer hit your ship! It gets another turn.\n");
+                printField(playerField, 1);
                 if (checkWin(playerField)) {
                     computerWin = 1;
                     break;
@@ -152,11 +151,6 @@ int main() {
 
     return 0;
 }
-
-
-
-
-
 
 // Размещение кораблей вручную
 void placeShipsManual(char field[SIZE][SIZE], int mask[SIZE][SIZE], Ship ships[], int *shipCount) {
@@ -196,7 +190,6 @@ void placeShipsManual(char field[SIZE][SIZE], int mask[SIZE][SIZE], Ship ships[]
     }
 }
 
-
 // Размещение кораблей компьютером
 void placeShipsAuto(char field[SIZE][SIZE], int mask[SIZE][SIZE], Ship ships[], int *shipCount) {
     int shipSizes[] = {4, 3, 3, 2, 2, 2, 1, 1, 1, 1};
@@ -232,7 +225,6 @@ void placeShipsAuto(char field[SIZE][SIZE], int mask[SIZE][SIZE], Ship ships[], 
     }
 }
 
-
 // Проверка корректности размещения корабля
 int isValidPlacement(int mask[SIZE][SIZE], int x, int y, int length, int horizontal) {
     for (int i = 0; i < length; i++) {
@@ -244,7 +236,6 @@ int isValidPlacement(int mask[SIZE][SIZE], int x, int y, int length, int horizon
     }
     return 1;
 }
-
 
 // Добавление буферной зоны вокруг корабля
 void addBufferZone(int mask[SIZE][SIZE], int x, int y, int length, int horizontal) {
@@ -271,8 +262,6 @@ void addBufferZone(int mask[SIZE][SIZE], int x, int y, int length, int horizonta
     }
 }
 
-
-
 // Проверка победы
 int checkWin(char field[SIZE][SIZE]) {
     for (int i = 0; i < SIZE; i++) {
@@ -293,20 +282,6 @@ int parseCoordinates(char *input, int *x, int *y) {
     *y = atoi(&input[1]) - 1;
     return (*x >= 0 && *x < SIZE && *y >= 0 && *y < SIZE);
 }
-
-// // Обработка выстрела
-// int shoot(char field[SIZE][SIZE], int mask[SIZE][SIZE], int x, int y) {
-//     if (x < 0 || x >= SIZE || y < 0 || y >= SIZE)
-//         return 0;
-
-//     if (field[x][y] == SHIP) {
-//         field[x][y] = HIT;
-//         return 1;
-//     } else if (field[x][y] == EMPTY) {
-//         field[x][y] = MISS;
-//     }
-//     return 0;
-// }
 
 // Инициализация игрового поля
 void initializeField(char field[SIZE][SIZE], int mask[SIZE][SIZE]) {
@@ -349,17 +324,6 @@ void computerMove(AIState* aiState, char playerField[SIZE][SIZE], int playerMask
         *y = aiState->currentTarget[1];
     }
 }
-
-// Функция для проверки потопления корабля для разных размеров
-void checkAndPrintIfShipSunk(char field[SIZE][SIZE], int x, int y, const char* shipType) {
-    // for (int size = 4; size >= 1; size--) {  // Проверяем сначала для 4, потом 3, 2, 1
-    //     if (checkIfShipSunk(playerField, playerShips, numPlayerShips, x, y)) {
-    //         printf("%s sunk a ship of size %d!\n", shipType, size);
-    //         break;  // Останавливаем проверку, как только корабль потоплен
-    //     }
-    // }
-}
-
 
 // Обработка выстрела и проверка потоплен ли корабль
 int shootAndCheckIfShipSunk(char field[SIZE][SIZE], int mask[SIZE][SIZE], Ship ships[], int numShips, int x, int y) {
@@ -412,3 +376,129 @@ int shootAndCheckIfShipSunk(char field[SIZE][SIZE], int mask[SIZE][SIZE], Ship s
     }
     return 1;
 }
+
+void initializeAIState(AIState* state) {
+    state->mask = malloc(SIZE * sizeof(int*));
+    for (int i = 0; i < SIZE; i++) {
+        state->mask[i] = malloc(SIZE * sizeof(int));
+    }
+
+    state->hitQueue = malloc(SIZE * SIZE * sizeof(int[2]));
+    state->hitQueueSize = 0;
+    state->huntingMode = 0;
+    state->currentTarget[0] = -1;
+    state->currentTarget[1] = -1;
+}
+
+void enqueueAdjacentCells(AIState* state, int x, int y) {
+    const int directions[4][2] = { {0, 1}, {1, 0}, {0, -1}, {-1, 0} };
+
+    for (int i = 0; i < 4; i++) {
+        int nx = x + directions[i][0];
+        int ny = y + directions[i][1];
+
+        if (nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE) {
+            if (state->mask[nx][ny] == 0) {
+                state->mask[nx][ny] = 1; // Помечаем как "ожидаемая цель"
+                state->hitQueue[state->hitQueueSize][0] = nx;
+                state->hitQueue[state->hitQueueSize][1] = ny;
+                state->hitQueueSize++;
+            }
+        }
+    }
+}
+
+void handleShipDestroyed(AIState* state, int x, int y, int length, int horizontal) {
+    for (int i = 0; i < length; i++) {
+        int nx = x + (horizontal ? 0 : i);
+        int ny = y + (horizontal ? i : 0);
+
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                int bufferX = nx + dx;
+                int bufferY = ny + dy;
+
+                if (bufferX >= 0 && bufferX < SIZE && bufferY >= 0 && bufferY < SIZE) {
+                    state->mask[bufferX][bufferY] = -1; // Убираем из поиска
+                }
+            }
+        }
+    }
+    state->huntingMode = 0; // Завершаем охоту
+}
+
+int attackCell(char field[SIZE][SIZE], int mask[SIZE][SIZE], int x, int y) {
+    if (field[x][y] == SHIP) {
+        field[x][y] = HIT;
+        mask[x][y] = HIT;
+        return 1; // Попадание
+    }
+    field[x][y] = MISS;
+    mask[x][y] = MISS;
+    return 0; // Промах
+}
+
+void huntTarget(AIState* state, char field[SIZE][SIZE], int mask[SIZE][SIZE]) {
+    while (state->hitQueueSize > 0) {
+        int x = state->hitQueue[0][0];
+        int y = state->hitQueue[0][1];
+
+        for (int i = 1; i < state->hitQueueSize; i++) {
+            state->hitQueue[i - 1][0] = state->hitQueue[i][0];
+            state->hitQueue[i - 1][1] = state->hitQueue[i][1];
+        }
+        state->hitQueueSize--;
+
+        if (state->mask[x][y] == 0) {
+            int hit = attackCell(field, mask, x, y);
+            if (hit) {
+                enqueueAdjacentCells(state, x, y);
+            } else {
+                state->mask[x][y] = -1; // Промах
+            }
+            return;
+        }
+    }
+}
+
+void executeAITurn(AIState* state, char field[SIZE][SIZE], int mask[SIZE][SIZE]) {
+    if (state->huntingMode) {
+        huntTarget(state, field, mask); // Охота на корабль
+    } else {
+        int x, y;
+        do {
+            x = rand() % SIZE;
+            y = rand() % SIZE;
+        } while (state->mask[x][y] != 0); // Ищем неатакованную ячейку
+
+        int hit = attackCell(field, mask, x, y);
+        if (hit) {
+            state->huntingMode = 1;
+            state->currentTarget[0] = x;
+            state->currentTarget[1] = y;
+            enqueueAdjacentCells(state, x, y); // Добавляем соседние ячейки в очередь для поиска
+        } else {
+            state->mask[x][y] = -1; // Промах
+        }
+    }
+}
+
+void freeAIState(AIState* state) {
+    for (int i = 0; i < SIZE; i++) {
+        free(state->mask[i]);
+    }
+    free(state->mask);
+    free(state->hitQueue);
+}
+// void printMask(int field[SIZE][SIZE], int isHideShips) {
+//     printf("   ");
+//     for (int i = 1; i <= SIZE; i++) printf("%d\t", i);
+//     printf("\n");
+//     for (int i = 0; i < SIZE; i++) {
+//         printf("%c  ", 'A' + i); // A-J for rows
+//         for (int j = 0; j < SIZE; j++) {
+//             printf("%d\t", field[i][j]);
+//         }
+//         printf("\n");
+//     }
+// }
