@@ -32,25 +32,22 @@ typedef struct {
 void initializeAIState(AIState* state);
 void enqueueAdjacentCells(AIState* state, int x, int y);
 void handleShipDestroyed(AIState* state, int x, int y, int length, int horizontal);
-int attackCell(char field[SIZE][SIZE], int mask[SIZE][SIZE], int x, int y);
 void huntTarget(AIState* state, char field[SIZE][SIZE], int mask[SIZE][SIZE]);
 void executeAITurn(AIState* state, char field[SIZE][SIZE], int mask[SIZE][SIZE]);
 void freeAIState(AIState* state);
+void computerMove(AIState* aiState, char playerField[SIZE][SIZE],  int playerMask[SIZE][SIZE], int *x, int *y, int aiDifficulty);
 
-int parseCoordinates(char *input, int *x, int *y);
-int checkWin(char field[SIZE][SIZE]);
-
-int isShipSunk(char field[SIZE][SIZE], int x, int y);
 void placeShipsManual(char field[SIZE][SIZE], int mask[SIZE][SIZE], Ship ships[], int *shipCount);
 void placeShipsAuto(char field[SIZE][SIZE], int mask[SIZE][SIZE], Ship ships[], int *shipCount);
 void addBufferZone(int mask[SIZE][SIZE], int x, int y, int length, int horizontal);
-int isValidPlacement(int mask[SIZE][SIZE], int x, int y, int length, int horizontal);
 void initializeField(char field[SIZE][SIZE], int mask[SIZE][SIZE]);
 void printField(char field[SIZE][SIZE], int hideShips);
-void computerMove(AIState* aiState, char playerField[SIZE][SIZE],  int playerMask[SIZE][SIZE], int *x, int *y, int aiDifficulty);
+int isShipSunk(char field[SIZE][SIZE], int x, int y);
+int attackCell(char field[SIZE][SIZE], int mask[SIZE][SIZE], int x, int y);
+int isValidPlacement(int mask[SIZE][SIZE], int x, int y, int length, int horizontal);
+int parseCoordinates(char *input, int *x, int *y);
+int checkWin(char field[SIZE][SIZE]);
 int shootAndCheckIfShipSunk(char field[SIZE][SIZE], int mask[SIZE][SIZE], Ship ships[], int numShips, int x, int y);
-
-// void printMask(int field[SIZE][SIZE], int isHideShips) // Дебажная функция
 
 int main() {
     char playerField[SIZE][SIZE];
@@ -490,15 +487,3 @@ void freeAIState(AIState* state) {
     free(state->mask);
     free(state->hitQueue);
 }
-// void printMask(int field[SIZE][SIZE], int isHideShips) {
-//     printf("   ");
-//     for (int i = 1; i <= SIZE; i++) printf("%d\t", i);
-//     printf("\n");
-//     for (int i = 0; i < SIZE; i++) {
-//         printf("%c  ", 'A' + i); // A-J for rows
-//         for (int j = 0; j < SIZE; j++) {
-//             printf("%d\t", field[i][j]);
-//         }
-//         printf("\n");
-//     }
-// }
