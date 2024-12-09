@@ -9,6 +9,7 @@ const char EMPTY = ' '; // Пустая клетка
 const char SHIP = 'S'; // Корабль
 const char HIT = 'X'; // Попадание
 const char MISS = '.'; // Промах
+const char BUFFER = '_';
 
 // Прототипы функций
 void initializeField(char field[SIZE][SIZE]);
@@ -44,7 +45,7 @@ int main() {
         printf("Your field:\n");
         printField(playerField, 0);
         printf("Computer's field:\n");
-        printField(computerField, 1);
+        printField(computerField, 0);
 
         printf("Enter coordinates (e.g., B5): ");
         char input[10];
@@ -100,14 +101,14 @@ void initializeField(char field[SIZE][SIZE]) {
 }
 
 // Вывод игрового поля
-void printField(char field[SIZE][SIZE], int hideShips) {
+void printField(char field[SIZE][SIZE], int isHideShips) {
     printf("   ");
     for (int i = 1; i <= SIZE; i++) printf("%d ", i);
     printf("\n");
     for (int i = 0; i < SIZE; i++) {
         printf("%c  ", 'A' + i); // A-J for rows
         for (int j = 0; j < SIZE; j++) {
-            if (hideShips && field[i][j] == SHIP)
+            if (isHideShips && field[i][j] == SHIP)
                 printf("%c ", EMPTY);
             else
                 printf("%c ", field[i][j]);
@@ -135,6 +136,7 @@ void placeShipsManual(char field[SIZE][SIZE]) {
                         field[x + j][y] = SHIP;
                 }
                 addBufferZone(field, x, y, length, horizontal);
+                printField(field, 0);
                 break;
             } else {
                 printf("Invalid placement. Try again: ");
@@ -181,12 +183,22 @@ int isValidPlacement(char field[SIZE][SIZE], int x, int y, int length, int horiz
 
 // Добавление буферной зоны вокруг корабля
 void addBufferZone(char field[SIZE][SIZE], int x, int y, int length, int horizontal) {
-    for (int i = -1; i <= length; i++) {
-        for (int j = -1; j <= 1; j++) {
-            int nx = x + (horizontal ? 0 : i) + (horizontal ? 0 : j);
-            int ny = y + (horizontal ? i : 0) + (horizontal ? j : 0);
-            if (nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE && field[nx][ny] == EMPTY) {
-                field[nx][ny] = EMPTY;
+    // Для каждого сегмента корабля добавляем клетки вокруг
+    for (int i = 0; i < length; ++i) {
+        int nx = x + (horizontal ? 0 : i); // Кллодинаты по вертикали (если горизонтальный)
+        int ny = y + (horizontal ? i : 0); // Кллодинаты по горизонтали (если вертикальный)
+
+        // Проходим по всем клеткам вокруг сегмента корабля
+        for (int dx = -1; dx <= 1; ++dx) {
+            for (int dy = -1; dy <= 1; ++dy) {
+                int bufferX = nx + dx;
+                int bufferY = ny + dy;
+
+                if (bufferX >= 0 && bufferX < SIZE && bufferY >= 0 && bufferY < SIZE) {
+                    if (field[bufferX][bufferY] == EMPTY) {
+                        field[bufferX][bufferY] = BUFFER;
+                    }
+                }
             }
         }
     }
@@ -225,7 +237,7 @@ int checkWin(char field[SIZE][SIZE]) {
     return 1;
 }
 
-// Парсинг ввода, например "B5"
+// Парсинг ввода, например "B5" -> 1 4
 int parseCoordinates(char *input, int *x, int *y) {
     if (strlen(input) < 2 || input[0] < 'A' || input[0] > 'J' || !isdigit(input[1])) {
         return 0;
