@@ -31,12 +31,12 @@ void computerMoveHard(char field[SIZE][SIZE], int *x, int *y);
 
 void printMask(int field[SIZE][SIZE], int isHideShips) {
     printf("   ");
-    for (int i = 1; i <= SIZE; i++) printf("%d ", i);
+    for (int i = 1; i <= SIZE; i++) printf("%d\t", i);
     printf("\n");
     for (int i = 0; i < SIZE; i++) {
         printf("%c  ", 'A' + i); // A-J for rows
         for (int j = 0; j < SIZE; j++) {
-            printf("%d ", field[i][j]);
+            printf("%d\t", field[i][j]);
         }
         printf("\n");
     }
@@ -200,6 +200,10 @@ void addBufferZone(int mask[SIZE][SIZE], int x, int y, int length, int horizonta
         int nx = x + (horizontal ? 0 : i);
         int ny = y + (horizontal ? i : 0);
 
+        // Помечаем клетки корабля
+        mask[nx][ny] = BUFFER_SHIP_CELL;
+
+        // Помечаем клетки вокруг корабля
         for (int dx = -1; dx <= 1; dx++) {
             for (int dy = -1; dy <= 1; dy++) {
                 int bufferX = nx + dx;
@@ -214,6 +218,7 @@ void addBufferZone(int mask[SIZE][SIZE], int x, int y, int length, int horizonta
         }
     }
 }
+
 
 
 // Проверка победы
