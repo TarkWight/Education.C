@@ -9,35 +9,36 @@ const char EMPTY = ' '; // Пустая клетка
 const char SHIP = 'S'; // Корабль
 const char HIT = 'X'; // Попадание
 const char MISS = '.'; // Промах
-const char BUFFER = '_';
+const char BUFFER = '_'; // Для маски
 
 // Прототипы функций
-void initializeField(char field[SIZE][SIZE]);
+void initializeField(char field[SIZE][SIZE], char mask[SIZE][SIZE]);
 void printField(char field[SIZE][SIZE], int hideShips);
-void placeShipsManual(char field[SIZE][SIZE]);
-void placeShipsAuto(char field[SIZE][SIZE]);
-int isValidPlacement(char field[SIZE][SIZE], int x, int y, int length, int horizontal);
-void addBufferZone(char field[SIZE][SIZE], int x, int y, int length, int horizontal);
-int shoot(char field[SIZE][SIZE], int x, int y);
+void placeShipsManual(char field[SIZE][SIZE], char mask[SIZE][SIZE]);
+void placeShipsAuto(char field[SIZE][SIZE], char mask[SIZE][SIZE]);
+int isValidPlacement(char mask[SIZE][SIZE], int x, int y, int length, int horizontal);
+void addBufferZone(char mask[SIZE][SIZE], int x, int y, int length, int horizontal);
+int shoot(char field[SIZE][SIZE], char mask[SIZE][SIZE], int x, int y);
 void computerMove(char field[SIZE][SIZE], int *x, int *y);
 int checkWin(char field[SIZE][SIZE]);
 int parseCoordinates(char *input, int *x, int *y);
 
 int main() {
-    char playerField[SIZE][SIZE], computerField[SIZE][SIZE];
+    char playerField[SIZE][SIZE], playerMask[SIZE][SIZE];
+    char computerField[SIZE][SIZE], computerMask[SIZE][SIZE];
     int x, y, playerWin = 0, computerWin = 0;
 
     srand((unsigned int)time(NULL));
 
     // Инициализация полей
-    initializeField(playerField);
-    initializeField(computerField);
+    initializeField(playerField, playerMask);
+    initializeField(computerField, computerMask);
 
     // Размещение кораблей
     printf("Place your ships:\n");
-    placeShipsManual(playerField);
+    placeShipsManual(playerField, playerMask);
     printf("Computer is placing its ships...\n");
-    placeShipsAuto(computerField);
+    placeShipsAuto(computerField, computerMask);
 
     // Основной игровой цикл
     while (!playerWin && !computerWin) {
@@ -45,14 +46,14 @@ int main() {
         printf("Your field:\n");
         printField(playerField, 0);
         printf("Computer's field:\n");
-        printField(computerField, 0);
+        printField(computerField, 1);
 
         printf("Enter coordinates (e.g., B5): ");
         char input[10];
         scanf("%s", input);
 
         if (parseCoordinates(input, &x, &y)) {
-            if (shoot(computerField, x, y)) {
+            if (shoot(computerField, computerMask, x, y)) {
                 printf("Hit!\n");
             } else {
                 printf("Miss.\n");
@@ -70,7 +71,7 @@ int main() {
         printf("Computer's turn...\n");
         computerMove(playerField, &x, &y);
         printf("Computer shoots at (%c%d)\n", 'A' + x, y + 1);
-        if (shoot(playerField, x, y)) {
+        if (shoot(playerField, playerMask, x, y)) {
             printf("Computer hit your ship!\n");
         } else {
             printf("Computer missed.\n");
@@ -92,10 +93,11 @@ int main() {
 }
 
 // Инициализация игрового поля
-void initializeField(char field[SIZE][SIZE]) {
+void initializeField(char field[SIZE][SIZE], char mask[SIZE][SIZE]) {
     for (int i = 0; i < SIZE; i++) {
         for (int j = 0; j < SIZE; j++) {
             field[i][j] = EMPTY;
+            mask[i][j] = EMPTY;
         }
     }
 }
@@ -118,7 +120,7 @@ void printField(char field[SIZE][SIZE], int isHideShips) {
 }
 
 // Размещение кораблей вручную
-void placeShipsManual(char field[SIZE][SIZE]) {
+void placeShipsManual(char field[SIZE][SIZE], char mask[SIZE][SIZE]) {
     int shipSizes[] = {4, 3, 3, 2, 2, 2, 1, 1, 1, 1}; // Пример кораблей
     int x, y, horizontal;
 
@@ -128,14 +130,14 @@ void placeShipsManual(char field[SIZE][SIZE]) {
         while (1) {
             char input[10];
             scanf("%s %d", input, &horizontal);
-            if (parseCoordinates(input, &x, &y) && isValidPlacement(field, x, y, length, horizontal)) {
+            if (parseCoordinates(input, &x, &y) && isValidPlacement(mask, x, y, length, horizontal)) {
                 for (int j = 0; j < length; j++) {
                     if (horizontal)
                         field[x][y + j] = SHIP;
                     else
                         field[x + j][y] = SHIP;
                 }
-                addBufferZone(field, x, y, length, horizontal);
+                addBufferZone(mask, x, y, length, horizontal);
                 printField(field, 0);
                 break;
             } else {
@@ -146,7 +148,7 @@ void placeShipsManual(char field[SIZE][SIZE]) {
 }
 
 // Размещение кораблей компьютером
-void placeShipsAuto(char field[SIZE][SIZE]) {
+void placeShipsAuto(char field[SIZE][SIZE], char mask[SIZE][SIZE]) {
     int shipSizes[] = {4, 3, 3, 2, 2, 2, 1, 1, 1, 1};
     int x, y, horizontal;
 
@@ -156,14 +158,14 @@ void placeShipsAuto(char field[SIZE][SIZE]) {
             x = rand() % SIZE;
             y = rand() % SIZE;
             horizontal = rand() % 2;
-            if (isValidPlacement(field, x, y, length, horizontal)) {
+            if (isValidPlacement(mask, x, y, length, horizontal)) {
                 for (int j = 0; j < length; j++) {
                     if (horizontal)
                         field[x][y + j] = SHIP;
                     else
                         field[x + j][y] = SHIP;
                 }
-                addBufferZone(field, x, y, length, horizontal);
+                addBufferZone(mask, x, y, length, horizontal);
                 break;
             }
         }
@@ -171,32 +173,30 @@ void placeShipsAuto(char field[SIZE][SIZE]) {
 }
 
 // Проверка корректности размещения корабля
-int isValidPlacement(char field[SIZE][SIZE], int x, int y, int length, int horizontal) {
+int isValidPlacement(char mask[SIZE][SIZE], int x, int y, int length, int horizontal) {
     for (int i = 0; i < length; i++) {
         int nx = x + (horizontal ? 0 : i);
         int ny = y + (horizontal ? i : 0);
-        if (nx < 0 || nx >= SIZE || ny < 0 || ny >= SIZE || field[nx][ny] != EMPTY)
+        if (nx < 0 || nx >= SIZE || ny < 0 || ny >= SIZE || mask[nx][ny] != EMPTY)
             return 0;
     }
     return 1;
 }
 
 // Добавление буферной зоны вокруг корабля
-void addBufferZone(char field[SIZE][SIZE], int x, int y, int length, int horizontal) {
-    // Для каждого сегмента корабля добавляем клетки вокруг
-    for (int i = 0; i < length; ++i) {
-        int nx = x + (horizontal ? 0 : i); // Кллодинаты по вертикали (если горизонтальный)
-        int ny = y + (horizontal ? i : 0); // Кллодинаты по горизонтали (если вертикальный)
+void addBufferZone(char mask[SIZE][SIZE], int x, int y, int length, int horizontal) {
+    for (int i = 0; i < length; i++) {
+        int nx = x + (horizontal ? 0 : i);
+        int ny = y + (horizontal ? i : 0);
 
-        // Проходим по всем клеткам вокруг сегмента корабля
-        for (int dx = -1; dx <= 1; ++dx) {
-            for (int dy = -1; dy <= 1; ++dy) {
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
                 int bufferX = nx + dx;
                 int bufferY = ny + dy;
 
                 if (bufferX >= 0 && bufferX < SIZE && bufferY >= 0 && bufferY < SIZE) {
-                    if (field[bufferX][bufferY] == EMPTY) {
-                        field[bufferX][bufferY] = BUFFER;
+                    if (mask[bufferX][bufferY] == EMPTY) {
+                        mask[bufferX][bufferY] = BUFFER;
                     }
                 }
             }
@@ -205,7 +205,7 @@ void addBufferZone(char field[SIZE][SIZE], int x, int y, int length, int horizon
 }
 
 // Обработка выстрела
-int shoot(char field[SIZE][SIZE], int x, int y) {
+int shoot(char field[SIZE][SIZE], char mask[SIZE][SIZE], int x, int y) {
     if (x < 0 || x >= SIZE || y < 0 || y >= SIZE)
         return 0;
 
@@ -237,7 +237,7 @@ int checkWin(char field[SIZE][SIZE]) {
     return 1;
 }
 
-// Парсинг ввода, например "B5" -> 1 4
+// Парсинг ввода
 int parseCoordinates(char *input, int *x, int *y) {
     if (strlen(input) < 2 || input[0] < 'A' || input[0] > 'J' || !isdigit(input[1])) {
         return 0;
