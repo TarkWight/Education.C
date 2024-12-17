@@ -60,6 +60,10 @@ void add_word_to_frequency(TextStats *stats, const char *word) {
     stats->word_count++;
 }
 
+int compare_words(const void *a, const void *b) {
+    return strcmp(((WordFrequency *)a)->word, ((WordFrequency *)b)->word);
+}
+
 void analyze_text(const char *filename, TextStats *stats) {
     FILE *file = fopen(filename, "r");
     if (!file) {
@@ -80,21 +84,9 @@ void analyze_text(const char *filename, TextStats *stats) {
         int line_words = count_words_in_line(line);
         stats->total_words += line_words;
 
-        for (int i = 0; line[i] != '\0'; i++) {
-            if (is_sentence_end(line[i])) {
-                stats->total_sentences++;
-                sentence_ended = 1;
-            } else if (!isspace(line[i])) {
-                sentence_ended = 0;
-            }
-        }
-        if (!sentence_ended) stats->total_sentences++;
-
-        count_char_frequency(line, stats->char_frequency);
-
         char word[100];
         int word_index = 0;
-
+        int sentence_num = 1;
         for (int i = 0; line[i] != '\0'; i++) {
             if (isalnum(line[i])) {
                 word[word_index++] = tolower(line[i]);
@@ -105,11 +97,17 @@ void analyze_text(const char *filename, TextStats *stats) {
                     word_index = 0;
                 }
             }
+
+            if (is_sentence_end(line[i])) {
+                sentence_num++;
+            }
         }
         if (word_index > 0) {
             word[word_index] = '\0';
             add_word_to_frequency(stats, word);
         }
+
+        count_char_frequency(line, stats->char_frequency);
     }
 
     fclose(file);
@@ -138,11 +136,18 @@ void save_results(const TextStats *stats) {
         return;
     }
 
+    fprintf(file, "===========================\n");
+    fprintf(file, "General Text Statistics\n");
+    fprintf(file, "===========================\n");
     fprintf(file, "Paragraphs: %d\n", stats->total_paragraphs);
     fprintf(file, "Sentences: %d\n", stats->total_sentences);
     fprintf(file, "Words: %d\n", stats->total_words);
-    fprintf(file, "Average words per sentence: %.2f\n",
+    fprintf(file, "Average words per sentence: %.2f\n\n",
             (double)stats->total_words / stats->total_sentences);
+
+    fprintf(file, "===========================\n");
+    fprintf(file, "Character Frequency\n");
+    fprintf(file, "===========================\n");
 
     for (int i = 0; i < 256; i++) {
         if (stats->char_frequency[i] > 0) {
@@ -154,12 +159,36 @@ void save_results(const TextStats *stats) {
         }
     }
 
+    fprintf(file, "\n===========================\n");
+    fprintf(file, "Word Frequency\n");
+    fprintf(file, "===========================\n");
+
+    qsort(stats->word_frequency, stats->word_count, sizeof(WordFrequency), compare_words);
+
     for (int i = 0; i < stats->word_count; i++) {
         fprintf(file, "%s: %.2f\n", stats->word_frequency[i].word,
                 (double)stats->word_frequency[i].frequency / stats->total_words);
     }
 
     fclose(file);
+}
+
+void search_word(const TextStats *stats, const char *word) {
+    int low = 0, high = stats->word_count - 1;
+    while (low <= high) {
+        int mid = low + (high - low) / 2;
+        int cmp = strcmp(stats->word_frequency[mid].word, word);
+        if (cmp == 0) {
+            printf("Word '%s' found. Frequency: %d\n", word, stats->word_frequency[mid].frequency);
+            return;
+        }
+        if (cmp < 0) {
+            low = mid + 1;
+        } else {
+            high = mid - 1;
+        }
+    }
+    printf("Word '%s' not found.\n", word);
 }
 
 int main() {
@@ -179,6 +208,11 @@ int main() {
 
     save_results(&stats);
     printf("Results saved to: %s\n", RESULT_FILE);
+
+    char search_word_str[100];
+    printf("Enter word to search: ");
+    scanf("%s", search_word_str);
+    search_word(&stats, search_word_str);
 
     free(stats.word_frequency);
 
