@@ -10,6 +10,7 @@ typedef struct {
     int total_paragraphs;  // Общее количество абзацев
     int total_sentences;   // Общее количество предложений
     int total_words;       // Общее количество слов
+    int char_frequency[256];  // Частота символов (по ASCII)
 } TextStats;
 
 int is_sentence_end(char c) {
@@ -32,6 +33,13 @@ int count_words_in_line(const char *line) {
     return word_count;
 }
 
+void count_char_frequency(const char *line, int *char_frequency) {
+    for (int i = 0; line[i] != '\0'; i++) {
+        unsigned char c = line[i];
+        char_frequency[c]++;
+    }
+}
+
 void analyze_text(const char *filename, TextStats *stats) {
     FILE *file = fopen(filename, "r");
     if (!file) {
@@ -46,9 +54,7 @@ void analyze_text(const char *filename, TextStats *stats) {
 
     while (fgets(line, sizeof(line), file)) {
         if (strcmp(line, "\n") == 0) {
-            if (stats->total_paragraphs == 0 || line[0] == '\n') {
-                stats->total_paragraphs++;
-            }
+            stats->total_paragraphs++;
             continue;
         }
 
@@ -64,26 +70,29 @@ void analyze_text(const char *filename, TextStats *stats) {
             }
         }
         if (!sentence_ended) stats->total_sentences++;
+
+        count_char_frequency(line, stats->char_frequency);
     }
 
     fclose(file);
     if (stats->total_paragraphs == 0) stats->total_paragraphs = 1;
 }
 
-
-// Загрузка существующих результатов из файла
 void load_previous_results(TextStats *stats) {
     FILE *file = fopen(RESULT_FILE, "r");
-    if (!file) return; // Если файла нет, просто выходим
+    if (!file) return;
 
     fscanf(file, "Paragraphs: %d\n", &stats->total_paragraphs);
     fscanf(file, "Sentences: %d\n", &stats->total_sentences);
     fscanf(file, "Words: %d\n", &stats->total_words);
 
+    for (int i = 0; i < 256; i++) {
+        fscanf(file, "%d", &stats->char_frequency[i]);
+    }
+
     fclose(file);
 }
 
-// Сохранение результатов в файл
 void save_results(const TextStats *stats) {
     FILE *file = fopen(RESULT_FILE, "w");
     if (!file) {
@@ -97,21 +106,24 @@ void save_results(const TextStats *stats) {
     fprintf(file, "Average words per sentence: %.2f\n",
             (double)stats->total_words / stats->total_sentences);
 
+    for (int i = 0; i < 256; i++) {
+        if (stats->char_frequency[i] > 0) {
+            fprintf(file, "%c: %d\n", i, stats->char_frequency[i]);
+        }
+    }
+
     fclose(file);
 }
 
-// Главная функция
 int main() {
     const char *input_file = "input.txt";
-    TextStats stats = {0, 0, 0}; // Инициализация статистики
+    TextStats stats = {0, 0, 0, {0}};
 
-    // Загрузка предыдущих результатов
     load_previous_results(&stats);
 
     printf("Analyzing file: %s\n", input_file);
     analyze_text(input_file, &stats);
 
-    // Сохранение обновлённых результатов
     save_results(&stats);
     printf("Results saved to: %s\n", RESULT_FILE);
 
