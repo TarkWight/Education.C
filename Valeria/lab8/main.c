@@ -76,6 +76,69 @@ int compare_words(const void *a, const void *b) {
     return strcmp(((WordFrequency *)a)->word, ((WordFrequency *)b)->word);
 }
 
+void load_previous_results(TextStats *stats) {
+    FILE *file = fopen(RESULT_FILE, "r");
+    if (!file) {
+        return; // Если файла нет, просто выходим
+    }
+
+    char line[256];
+    int total_paragraphs = 0, total_sentences = 0, previous_total_words = 0;
+
+    // Чтение заголовка
+    while (fgets(line, sizeof(line), file)) {
+        if (strncmp(line, "Paragraphs:", 10) == 0) {
+            sscanf(line, "Paragraphs: %d", &total_paragraphs);
+            stats->total_paragraphs += total_paragraphs;
+        } else if (strncmp(line, "Sentences:", 9) == 0) {
+            sscanf(line, "Sentences: %d", &total_sentences);
+            stats->total_sentences += total_sentences;
+        } else if (strncmp(line, "Words:", 6) == 0) {
+            sscanf(line, "Words: %d", &previous_total_words);
+            stats->total_words += previous_total_words;
+        } else if (strncmp(line, "Character Frequency", 19) == 0) {
+            // Загружаем частоту символов
+            while (fgets(line, sizeof(line), file) && line[0] != '=' && line[0] != '\n') {
+                unsigned char c;
+                int frequency;
+                if (line[0] == '\\' && line[1] == 'n') { // Обрабатываем символ новой строки
+                    sscanf(line, "\\n: %d", &frequency);
+                    stats->char_frequency['\n'] += frequency;
+                } else if (sscanf(line, "%c: %d", &c, &frequency) == 2) {
+                    stats->char_frequency[c] += frequency;
+                }
+            }
+        } else if (strncmp(line, "Word Frequency", 14) == 0) {
+            while (fgets(line, sizeof(line), file) && line[0] != '=' && line[0] != '\n') {
+                char word[100];
+                double relative_frequency;
+                if (sscanf(line, "%s: %lf", word, &relative_frequency) == 2) {
+                    int absolute_frequency = (int)(relative_frequency * stats->total_words);
+                    int word_found = 0;
+
+                    for (int i = 0; i < stats->word_count; i++) {
+                        if (strcmp(stats->word_frequency[i].word, word) == 0) {
+                            stats->word_frequency[i].frequency += absolute_frequency;
+                            word_found = 1;
+                            break;
+                        }
+                    }
+
+                    if (!word_found) {
+                        strcpy(stats->word_frequency[stats->word_count].word, word);
+                        stats->word_frequency[stats->word_count].frequency = absolute_frequency;
+                        stats->word_count++;
+                    }
+                }
+            }
+        }
+
+    }
+
+    fclose(file);
+}
+
+
 void analyze_text(const char *filename, TextStats *stats) {
     FILE *file = fopen(filename, "r");
     if (!file) {
@@ -88,6 +151,8 @@ void analyze_text(const char *filename, TextStats *stats) {
     stats->total_paragraphs = 0;
     stats->total_sentences = 0;
     stats->total_words = 0;
+
+    load_previous_results(stats);
 
     while (fgets(line, sizeof(line), file)) {
         int line_len = strlen(line);
@@ -133,62 +198,6 @@ void analyze_text(const char *filename, TextStats *stats) {
     fclose(file);
 }
 
-void load_previous_results(TextStats *stats) {
-    FILE *file = fopen(RESULT_FILE, "r");
-    if (!file) {
-        return;
-    }
-
-    char line[256];
-    int total_paragraphs = 0, total_sentences = 0, total_words = 0;
-
-    // Чтение заголовка
-    while (fgets(line, sizeof(line), file)) {
-        if (strncmp(line, "Paragraphs:", 10) == 0) {
-            sscanf(line, "Paragraphs: %d", &total_paragraphs);
-            stats->total_paragraphs += total_paragraphs;
-        } else if (strncmp(line, "Sentences:", 9) == 0) {
-            sscanf(line, "Sentences: %d", &total_sentences);
-            stats->total_sentences += total_sentences;
-        } else if (strncmp(line, "Words:", 6) == 0) {
-            sscanf(line, "Words: %d", &total_words);
-            stats->total_words += total_words;
-        } else if (strncmp(line, "Character Frequency", 19) == 0) {
-            // Загружаем частоту символов
-            while (fgets(line, sizeof(line), file) && line[0] != '=' && line[0] != '\n') {
-                unsigned char c;
-                int frequency;
-                if (line[0] == '\\' && line[1] == 'n') { // Обрабатываем символ новой строки
-                    sscanf(line, "\\n: %d", &frequency);
-                    stats->char_frequency['\n'] += frequency;
-                } else if (sscanf(line, "%c: %d", &c, &frequency) == 2) {
-                    stats->char_frequency[c] += frequency;
-                }
-            }
-        } else if (strncmp(line, "Word Frequency", 14) == 0) {
-            // Загружаем частоту слов
-            while (fgets(line, sizeof(line), file) && line[0] != '=' && line[0] != '\n') {
-                char word[100];
-                int frequency;
-                if (sscanf(line, "%s: %d", word, &frequency) == 2) {
-                    for (int i = 0; i < stats->word_count; i++) {
-                        if (strcmp(stats->word_frequency[i].word, word) == 0) {
-                            stats->word_frequency[i].frequency += frequency;
-                            goto next_word; // Слово уже существует
-                        }
-                    }
-                    // Добавляем новое слово
-                    strcpy(stats->word_frequency[stats->word_count].word, word);
-                    stats->word_frequency[stats->word_count].frequency = frequency;
-                    stats->word_count++;
-                }
-            next_word:;
-            }
-        }
-    }
-
-    fclose(file);
-}
 
 void save_results(const TextStats *stats) {
     FILE *file = fopen(RESULT_FILE, "w");
@@ -197,18 +206,15 @@ void save_results(const TextStats *stats) {
         return;
     }
 
-    fseek(file, 0, SEEK_END);
-    if (ftell(file) == 0) {
-        fprintf(file, "===========================\n");
-        fprintf(file, "General Text Statistics\n");
-        fprintf(file, "===========================\n");
-    }
+    fprintf(file, "===========================\n");
+    fprintf(file, "General Text Statistics\n");
+    fprintf(file, "===========================\n");
 
     fprintf(file, "Paragraphs: %d\n", stats->total_paragraphs);
     fprintf(file, "Sentences: %d\n", stats->total_sentences);
     fprintf(file, "Words: %d\n", stats->total_words);
     fprintf(file, "Average words per sentence: %.2f\n\n",
-            (double)stats->total_words / stats->total_sentences);
+            (stats->total_sentences > 0) ? (double)stats->total_words / stats->total_sentences : 0.0);
 
     fprintf(file, "===========================\n");
     fprintf(file, "Character Frequency\n");
@@ -228,6 +234,7 @@ void save_results(const TextStats *stats) {
     fprintf(file, "Word Frequency\n");
     fprintf(file, "===========================\n");
 
+    // Сортировка слов перед сохранением
     qsort(stats->word_frequency, stats->word_count, sizeof(WordFrequency), compare_words);
 
     for (int i = 0; i < stats->word_count; i++) {
@@ -237,6 +244,7 @@ void save_results(const TextStats *stats) {
 
     fclose(file);
 }
+
 
 void search_word(TextStats *stats, char *word) {
     for (int i = 0; word[i]; i++) {
@@ -272,8 +280,6 @@ int main() {
         printf("Memory allocation failed\n");
         return 1;
     }
-
-    load_previous_results(&stats);
 
     printf("Analyzing file: %s\n", input_file);
     analyze_text(input_file, &stats);
