@@ -1,16 +1,16 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 
-const int MAX_LINE_LEN = 1000; // Максимальная длина строки в файле
-const char *RESULT_FILE = "results.txt"; // Файл для сохранения результатов
+const int MAX_LINE_LEN = 1000;
+const char *RESULT_FILE = "results.txt";
 
-// Структура для хранения общей информации о тексте
 typedef struct {
-    int total_paragraphs;  // Общее количество абзацев
-    int total_sentences;   // Общее количество предложений
-    int total_words;       // Общее количество слов
-    int char_frequency[256];  // Частота символов (по ASCII)
+    int total_paragraphs;
+    int total_sentences;
+    int total_words;
+    int char_frequency[256];
 } TextStats;
 
 int is_sentence_end(char c) {
@@ -19,7 +19,6 @@ int is_sentence_end(char c) {
 
 int count_words_in_line(const char *line) {
     int in_word = 0, word_count = 0;
-
     for (int i = 0; line[i] != '\0'; i++) {
         if (isalnum(line[i])) {
             if (!in_word) {
@@ -49,7 +48,6 @@ void analyze_text(const char *filename, TextStats *stats) {
 
     char line[MAX_LINE_LEN];
     int sentence_ended = 1;
-
     stats->total_paragraphs = 0;
 
     while (fgets(line, sizeof(line), file)) {
@@ -108,7 +106,11 @@ void save_results(const TextStats *stats) {
 
     for (int i = 0; i < 256; i++) {
         if (stats->char_frequency[i] > 0) {
-            fprintf(file, "%c: %d\n", i, stats->char_frequency[i]);
+            if (i == '\n') {
+                fprintf(file, "\\n: %d\n", stats->char_frequency[i]);
+            } else {
+                fprintf(file, "%c: %d\n", i, stats->char_frequency[i]);
+            }
         }
     }
 
