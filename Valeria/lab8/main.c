@@ -5,12 +5,20 @@
 
 const int MAX_LINE_LEN = 1000;
 const char *RESULT_FILE = "results.txt";
+const int MAX_WORDS = 10000;
+
+typedef struct {
+    char word[100];
+    int frequency;
+} WordFrequency;
 
 typedef struct {
     int total_paragraphs;
     int total_sentences;
     int total_words;
     int char_frequency[256];
+    WordFrequency *word_frequency;
+    int word_count;
 } TextStats;
 
 int is_sentence_end(char c) {
@@ -37,6 +45,19 @@ void count_char_frequency(const char *line, int *char_frequency) {
         unsigned char c = line[i];
         char_frequency[c]++;
     }
+}
+
+void add_word_to_frequency(TextStats *stats, const char *word) {
+    for (int i = 0; i < stats->word_count; i++) {
+        if (strcmp(stats->word_frequency[i].word, word) == 0) {
+            stats->word_frequency[i].frequency++;
+            return;
+        }
+    }
+
+    strcpy(stats->word_frequency[stats->word_count].word, word);
+    stats->word_frequency[stats->word_count].frequency = 1;
+    stats->word_count++;
 }
 
 void analyze_text(const char *filename, TextStats *stats) {
@@ -70,6 +91,25 @@ void analyze_text(const char *filename, TextStats *stats) {
         if (!sentence_ended) stats->total_sentences++;
 
         count_char_frequency(line, stats->char_frequency);
+
+        char word[100];
+        int word_index = 0;
+
+        for (int i = 0; line[i] != '\0'; i++) {
+            if (isalnum(line[i])) {
+                word[word_index++] = tolower(line[i]);
+            } else {
+                if (word_index > 0) {
+                    word[word_index] = '\0';
+                    add_word_to_frequency(stats, word);
+                    word_index = 0;
+                }
+            }
+        }
+        if (word_index > 0) {
+            word[word_index] = '\0';
+            add_word_to_frequency(stats, word);
+        }
     }
 
     fclose(file);
@@ -114,12 +154,23 @@ void save_results(const TextStats *stats) {
         }
     }
 
+    for (int i = 0; i < stats->word_count; i++) {
+        fprintf(file, "%s: %.2f\n", stats->word_frequency[i].word,
+                (double)stats->word_frequency[i].frequency / stats->total_words);
+    }
+
     fclose(file);
 }
 
 int main() {
     const char *input_file = "input.txt";
-    TextStats stats = {0, 0, 0, {0}};
+    TextStats stats = {0, 0, 0, {0}, NULL, 0};
+
+    stats.word_frequency = malloc(MAX_WORDS * sizeof(WordFrequency));
+    if (!stats.word_frequency) {
+        printf("Memory allocation failed\n");
+        return 1;
+    }
 
     load_previous_results(&stats);
 
@@ -128,6 +179,8 @@ int main() {
 
     save_results(&stats);
     printf("Results saved to: %s\n", RESULT_FILE);
+
+    free(stats.word_frequency);
 
     return 0;
 }
