@@ -79,12 +79,11 @@ int compare_words(const void *a, const void *b) {
 void load_previous_results(TextStats *stats) {
     FILE *file = fopen(RESULT_FILE, "r");
     if (!file) {
-        return; // Если файла нет, просто выходим
+        return;
     }
 
     char line[256];
 
-    // Чтение заголовка
     while (fgets(line, sizeof(line), file)) {
         if (strncmp(line, "Paragraphs:", 10) == 0) {
             sscanf(line, "Paragraphs: %d", &stats->total_paragraphs);
@@ -112,7 +111,6 @@ void load_previous_results(TextStats *stats) {
                     int absolute_frequency = (int)(relative_frequency * stats->total_words);
                     int word_found = 0;
 
-                    // Ищем и обновляем частоту слова
                     for (int i = 0; i < stats->word_count; i++) {
                         if (strcmp(stats->word_frequency[i].word, word) == 0) {
                             stats->word_frequency[i].frequency += absolute_frequency;
@@ -121,7 +119,6 @@ void load_previous_results(TextStats *stats) {
                         }
                     }
 
-                    // Если слово не найдено, добавляем его
                     if (!word_found) {
                         strcpy(stats->word_frequency[stats->word_count].word, word);
                         stats->word_frequency[stats->word_count].frequency = absolute_frequency;
@@ -134,25 +131,25 @@ void load_previous_results(TextStats *stats) {
 
     fclose(file);
 
-    // Напечатаем все слова в строку
-    printf("\nLoaded Words:\n");
-    for (int i = 0; i < stats->word_count; i++) {
-        printf("%s ", stats->word_frequency[i].word);
-    }
-    printf("\n");
+    // // Напечатаем все слова в строку
+    // printf("\nLoaded Words:\n");
+    // for (int i = 0; i < stats->word_count; i++) {
+    //     printf("%s ", stats->word_frequency[i].word);
+    // }
+    // printf("\n");
 
-    // Напечатаем все символы в строку
-    printf("\nLoaded Character Frequencies:\n");
-    for (int i = 0; i < 256; i++) {
-        if (stats->char_frequency[i] > 0) {
-            if (i == '\n') {
-                printf("\\n ");
-            } else {
-                printf("%c ", i);
-            }
-        }
-    }
-    printf("\n");
+    // // Напечатаем все символы в строку
+    // printf("\nLoaded Character Frequencies:\n");
+    // for (int i = 0; i < 256; i++) {
+    //     if (stats->char_frequency[i] > 0) {
+    //         if (i == '\n') {
+    //             printf("\\n ");
+    //         } else {
+    //             printf("%c ", i);
+    //         }
+    //     }
+    // }
+    // printf("\n");
 }
 
 
@@ -252,7 +249,6 @@ void save_results(const TextStats *stats) {
     fprintf(file, "Word Frequency\n");
     fprintf(file, "===========================\n");
 
-    // Сортировка слов перед сохранением
     qsort(stats->word_frequency, stats->word_count, sizeof(WordFrequency), compare_words);
 
     for (int i = 0; i < stats->word_count; i++) {
@@ -299,25 +295,43 @@ int main() {
         return 1;
     }
 
-    // Загружаем предыдущие результаты перед началом анализа
     load_previous_results(&stats);
 
-    // char choice;
-    // do {
-        printf("Analyzing file: %s\n", input_file);
-        analyze_text(input_file, &stats); // Выполняем анализ текста
+    char choice;
+    do {
+        printf("\nChoose an option:\n");
+        printf("s/S - Search for a word\n");
+        printf("a/A - Analyze a new file\n");
+        printf("c/C - Exit\n");
+        printf("Enter your choice: ");
+        scanf(" %c", &choice);
 
-        save_results(&stats); // Сохраняем результаты
+        if (choice == 's' || choice == 'S') {
+            char search_word_str[100];
+            printf("Enter word to search: ");
+            scanf("%s", search_word_str);
+            search_word(&stats, search_word_str);
+        }
+        else if (choice == 'a' || choice == 'A') {
+            printf("Analyzing file: %s\n", input_file);
+            analyze_text(input_file, &stats);
 
-        printf("Results saved to: %s\n", RESULT_FILE);
+            save_results(&stats);
+            printf("Results saved to: %s\n", RESULT_FILE);
+        }
+        else if (choice == 'c' || choice == 'C') {
+            printf("Exiting program.\n");
+            break;
+        }
+        else {
+            printf("Invalid choice. Please try again.\n");
+        }
 
-        // Спрашиваем, хотим ли мы продолжить анализ
-        // printf("Do you want to analyze another file? (y/n): ");
-        // scanf(" %c", &choice); // Обратите внимание на пробел перед %c для игнорирования символа новой строки
+    } while (choice != 'c' && choice != 'C');
 
-    // } while (choice == 'y' || choice == 'Y'); // Продолжаем цикл, пока пользователь хочет продолжить
-
-    free(stats.word_frequency); // Освобождаем память
+    free(stats.word_frequency);
     return 0;
 }
+
+
 
